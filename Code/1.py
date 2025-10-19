@@ -109,11 +109,16 @@ if __name__ == "__main__":
     # learning rate
     learning_rate = 0.3
 
+    print("是否需要重新训练神经网络？")
+    ans = input("输入1重新训练，输入0直接测试已有模型：")
+
+    if ans == '1':
+
     # create instance of neural network
-    n = NeuralNetwork(input_nodes, hidden_nodes, output_nodes, learning_rate)
-    data_file=open("./mnist_train.csv/mnist_train.csv",'r')
-    data_list=data_file.readlines()
-    data_file.close()
+        n = NeuralNetwork(input_nodes, hidden_nodes, output_nodes, learning_rate)
+        data_file=open("./mnist_train.csv/mnist_train.csv",'r')
+        data_list=data_file.readlines()
+        data_file.close()
 
     #from itertools import islice
     #with open("./mnist_train.csv/mnist_train.csv", "r", encoding="utf-8") as f:
@@ -133,66 +138,103 @@ if __name__ == "__main__":
     # 停止运行
 
     # 训练神经网络
-    for epochs in range(10):
-        for e in range(epochs):
+        for epochs in range(10):
+            for e in range(epochs):
 
-            for record in data_list:
+                for record in data_list:
 
+                    all_values=record.split(',')
+
+                    scaled_input = (np.asarray(all_values[1:], dtype=np.float32) / 255.0 * 0.99) + 0.01
+                    targets = np.zeros(output_nodes) + 0.01
+                    targets[int(all_values[0])] = 0.99
+                    n.train(scaled_input, targets)
+
+            test_data_file=open("./mnist_test.csv/mnist_test.csv",'r')
+            test_data_list=test_data_file.readlines()
+            test_data_file.close()
+            scorecard = [] 
+
+            # 查看测试图片
+            #for i in range(10):
+            #all_values=test_data_list[9].split(',')
+            #image_array=np.asarray(all_values[1:],dtype=np.float32).reshape((28,28))
+            #plt.imshow(image_array,cmap='Greys',interpolation='None')
+            #plt.show()
+
+            #测试神经网络的性能
+            for record in test_data_list:
                 all_values=record.split(',')
-
+                correct_label=int(all_values[0])
+                #print("correct label is ", correct_label)
                 scaled_input = (np.asarray(all_values[1:], dtype=np.float32) / 255.0 * 0.99) + 0.01
-                targets = np.zeros(output_nodes) + 0.01
-                targets[int(all_values[0])] = 0.99
-                n.train(scaled_input, targets)
+                outputs = n.query(scaled_input)
+                label = np.argmax(outputs)
+                #print("network's answer is ", label)
+                #print("\n")
+                if (label == correct_label):
+                    scorecard.append(1)
+                else:
+                    scorecard.append(0)
+            print("epochs = ", epochs)
+            print("performance = ", sum(scorecard)/len(scorecard))
+            print("\n")
 
-        test_data_file=open("./mnist_test.csv/mnist_test.csv",'r')
-        test_data_list=test_data_file.readlines()
-        test_data_file.close()
-        scorecard = [] 
+            # 达到95%以上就停止训练
+            if (sum(scorecard)/len(scorecard)) > 0.96:
+                break
 
-        # 查看测试图片
-        #for i in range(10):
-        #all_values=test_data_list[9].split(',')
-        #image_array=np.asarray(all_values[1:],dtype=np.float32).reshape((28,28))
-        #plt.imshow(image_array,cmap='Greys',interpolation='None')
-        #plt.show()
+        # 保存模型
+        np.savez_compressed("mnist_nn_model.npz", wih=n.wih, who=n.who)
 
-        #测试神经网络的性能
-        for record in test_data_list:
-            all_values=record.split(',')
-            correct_label=int(all_values[0])
-            #print("correct label is ", correct_label)
-            scaled_input = (np.asarray(all_values[1:], dtype=np.float32) / 255.0 * 0.99) + 0.01
-            outputs = n.query(scaled_input)
-            label = np.argmax(outputs)
-            #print("network's answer is ", label)
-            #print("\n")
-            if (label == correct_label):
-                scorecard.append(1)
-            else:
-                scorecard.append(0)
-        print("epochs = ", epochs)
-        print("performance = ", sum(scorecard)/len(scorecard))
-        print("\n")
+    else:
+        # 直接加载已有模型
+        n = NeuralNetwork(input_nodes, hidden_nodes, output_nodes, learning_rate)
+        model = np.load("mnist_nn_model.npz")
+        n.wih = model['wih']
+        n.who = model['who']
 
-        # 达到95%以上就停止训练
-        if (sum(scorecard)/len(scorecard)) > 0.96:
-            break
-
-
-    # 你可以用下面的代码测试自己的图片
     while True:
-        path = input("input your image path (or 'q' to quit): ")
-        if path.lower() == 'q':
+        ans = input("输入1测试mnist测试集，输入2测试你自己的图片，输入0退出：")
+        if ans == '1':
+            test_data_file=open("./mnist_test.csv/mnist_test.csv",'r')
+            test_data_list=test_data_file.readlines()
+            test_data_file.close()
+            scorecard = [] 
+            for record in test_data_list:
+                    all_values=record.split(',')
+                    correct_label=int(all_values[0])
+                    #print("correct label is ", correct_label)
+                    scaled_input = (np.asarray(all_values[1:], dtype=np.float32) / 255.0 * 0.99) + 0.01
+                    outputs = n.query(scaled_input)
+                    label = np.argmax(outputs)
+                    #print("network's answer is ", label)
+                    #print("\n")
+                    if (label == correct_label):
+                        scorecard.append(1)
+                    else:
+                        scorecard.append(0)
+            
+            print("performance = ", sum(scorecard)/len(scorecard))
+            print("\n")
+        
+        elif ans == '2':
+        # 你可以用下面的代码测试自己的图片
+            while True:
+                path = input("input your image path (or 'q' to quit): ")
+                if path.lower() == 'q':
+                    break
+                try:
+                    vec = prepare_image_for_mnist(path)  # 读入你自己的图片
+                except Exception as e:
+                    print(f"Error loading image: {e}")
+                    continue
+                outputs = n.query(vec)                  # 询问神经网络
+                label = np.argmax(outputs)               # 找到最大输出对应的标签
+                print("network's answer is ", label)     # 打印结果
+                img2 = vec.reshape((28, 28))
+                plt.imshow(img2, cmap='Greys', interpolation='None')
+                plt.show()
+        
+        else:
             break
-        try:
-            vec = prepare_image_for_mnist(path)  # 读入你自己的图片
-        except Exception as e:
-            print(f"Error loading image: {e}")
-            continue
-        outputs = n.query(vec)                  # 询问神经网络
-        label = np.argmax(outputs)               # 找到最大输出对应的标签
-        print("network's answer is ", label)     # 打印结果
-        img2 = vec.reshape((28, 28))
-        plt.imshow(img2, cmap='Greys', interpolation='None')
-        plt.show()
